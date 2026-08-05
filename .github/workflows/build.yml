@@ -1,0 +1,41 @@
+# H3OS CI — build freestanding x86_64 kernel in the cloud
+name: Build H3OS
+
+on:
+  push:
+    branches: [master, "cloud/**"]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install toolchain
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y nasm build-essential
+
+      - name: Build kernel
+        run: make clean all
+
+      - name: Upload kernel ELF
+        uses: actions/upload-artifact@v4
+        with:
+          name: h3os-elf
+          path: build/h3os.elf
+
+      - name: Verify Multiboot2 magic
+        run: |
+          python3 - <<'PY'
+          import struct
+          data = open("build/h3os.elf", "rb").read()
+          magic = struct.pack("<I", 0xE85250D6)
+          assert data[:4] == b"\x7fELF", "not ELF"
+          assert magic in data[:32768], "Multiboot2 header missing in first 32KiB"
+          print("OK: ELF + Multiboot2 header present, size", len(data))
+          PY
