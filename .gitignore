@@ -1,0 +1,15 @@
+# H3OS — gitignore
+build/
+*.o
+*.elf
+*.iso
+*.bin
+*.img
+*.d
+.cache/
+.vscode/
+.idea/
+*.swp
+*~
+__pycache__/
+compile_commands.json
