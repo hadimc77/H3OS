@@ -46,6 +46,15 @@ make run
 | Ctrl+N | Snap layouts |
 | Ctrl+D | Dark / Light theme |
 
+### `.exe` run (PE32+)
+
+Terminal-ൽ:
+```text
+run /bin/hello.exe
+hello.exe
+```
+H3OS native PE executables work now. Full Windows Win32 apps (Notepad.exe, games) need a future compatibility layer — see `docs/EXE.md`.
+
 ---
 
 ## English
