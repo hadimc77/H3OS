@@ -6,6 +6,7 @@
 #include "../../filesystem/vfs/vfs.h"
 #include "../../memory/pmm.h"
 #include "../../memory/heap.h"
+#include "../../loader/pe.h"
 #include <h3os/cpu.h>
 #include <h3os/version.h>
 #include <h3os/adaptive.h>
@@ -80,6 +81,7 @@ static void list_cb(vfs_node_t* n, void* ctx) {
 static void cmd_help(void) {
     term_println("H3OS Shell — commands:");
     term_println("  cd ls pwd mkdir rm cp mv cat echo");
+    term_println("  run ./file.exe   (PE32+ H3OS executables)");
     term_println("  grep find clear top kill systeminfo");
     term_println("  network shutdown reboot help version h3pkg");
 }
@@ -120,6 +122,63 @@ static char* next_arg(char** p) {
     while (**p && **p != ' ') (*p)++;
     if (**p) { **p = '\0'; (*p)++; }
     return start;
+}
+
+static void pe_term_write(const char* s) {
+    if (s) term_print(s);
+}
+
+static void pe_term_writeln(const char* s) {
+    if (s) term_println(s);
+    else term_newline();
+}
+
+static bool ends_with_exe(const char* s) {
+    size_t n = strlen(s);
+    if (n < 4) return false;
+    const char* e = s + n - 4;
+    return (e[0] == '.' && (e[1] == 'e' || e[1] == 'E') &&
+            (e[2] == 'x' || e[2] == 'X') && (e[3] == 'e' || e[3] == 'E'));
+}
+
+static void cmd_run(char* path) {
+    char full[VFS_PATH_MAX];
+    if (!path || !path[0]) {
+        term_println("run: usage: run <file.exe>");
+        term_println("try: run /bin/hello.exe");
+        return;
+    }
+    vfs_node_t* f = vfs_resolve(path);
+    if (!f && path[0] != '/') {
+        strcpy(full, "/bin/");
+        strcat(full, path);
+        f = vfs_resolve(full);
+        if (f) path = full;
+    }
+    if (!f || f->type != VFS_FILE) {
+        term_println("run: file not found");
+        return;
+    }
+    if (!f->data || f->size == 0) {
+        term_println("run: empty file");
+        return;
+    }
+    pe_info_t info;
+    if (!pe_probe(f->data, (size_t)f->size, &info)) {
+        term_print("run: not a valid H3OS PE32+ exe (");
+        term_print(info.error ? info.error : "error");
+        term_println(")");
+        term_println("note: Win32 GUI EXEs need the future Windows subsystem");
+        return;
+    }
+    term_print("run: launching ");
+    term_println(path);
+    pe_set_console(pe_term_write, pe_term_writeln);
+    i32 rc = pe_run(f->data, (size_t)f->size, path);
+    char num[16];
+    term_print("run: exit code ");
+    itoa(rc, num, 10);
+    term_println(num);
 }
 
 static void run_command(char* line) {
@@ -177,6 +236,11 @@ static void run_command(char* line) {
         }
     } else if (strcmp(cmd, "echo") == 0) {
         term_println(p);
+    } else if (strcmp(cmd, "run") == 0 || strcmp(cmd, "exec") == 0 || strcmp(cmd, "./") == 0) {
+        char* arg = next_arg(&p);
+        cmd_run(arg);
+    } else if (ends_with_exe(cmd)) {
+        cmd_run(cmd);
     } else if (strcmp(cmd, "systeminfo") == 0 || strcmp(cmd, "uname") == 0) {
         cmd_systeminfo();
     } else if (strcmp(cmd, "version") == 0) {
@@ -356,6 +420,7 @@ static void term_on_key(window_t* self, char c) {
 
 window_t* terminal_open(void) {
     memset(&g_term, 0, sizeof(g_term));
+    pe_set_console(pe_term_write, pe_term_writeln);
     fb_t* fb = fb_get();
     i32 w = 640, h = 400;
     i32 x = ((i32)fb->width - w) / 2;
@@ -370,7 +435,7 @@ window_t* terminal_open(void) {
     win->on_key = term_on_key;
 
     term_println("H3OS Terminal 0.1 — The Future Starts Here.");
-    term_println("Type 'help' for commands, 'systeminfo' for hardware.");
+    term_println("Type 'help' | try: run /bin/hello.exe");
     return win;
 }
 

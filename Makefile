@@ -57,6 +57,8 @@ C_SRCS := \
 	applications/settings/settings.c \
 	applications/filemanager/filemanager.c \
 	applications/taskmanager/taskmanager.c \
+	loader/pe.c \
+	loader/pe_seed.c \
 	network/net.c \
 	security/security.c
 
@@ -81,6 +83,7 @@ dirs:
 		$(BUILD)/applications/terminal $(BUILD)/applications/calculator \
 		$(BUILD)/applications/settings $(BUILD)/applications/filemanager \
 		$(BUILD)/applications/taskmanager \
+		$(BUILD)/loader \
 		$(BUILD)/network $(BUILD)/security \
 		$(BUILD)/iso/boot/grub
 

@@ -31,6 +31,8 @@
 #include "../applications/terminal/terminal.h"
 #include "../network/net.h"
 #include "../security/security.h"
+#include "../loader/pe.h"
+#include "../loader/pe_seed.h"
 
 void klog_init(void);
 void cpu_init(void);
@@ -133,6 +135,8 @@ void kernel_main(u64 multiboot_info_addr) {
 
     security_init();
     vfs_init();
+    pe_init();
+    pe_seed_binaries();
     net_init();
     ipc_init();
     power_init();
