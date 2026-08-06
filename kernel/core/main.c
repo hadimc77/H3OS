@@ -53,8 +53,13 @@ void kernel_idle(void) {
                 desktop_launch(APP_TERMINAL);
                 continue;
             }
-            if (c == 12) { /* Ctrl+L */
+            if (c == 12) { /* Ctrl+L / Win-like Start */
                 desktop_toggle_launcher();
+                continue;
+            }
+            if (c == 14) { /* Ctrl+N notification center */
+                /* reuse action via toggle launcher path — open snap */
+                desktop_toggle_snap();
                 continue;
             }
             if (c == 6) { /* Ctrl+F files */

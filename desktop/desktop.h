@@ -34,6 +34,7 @@ void desktop_set_accent(u32 color);
 void desktop_toggle_launcher(void);
 bool desktop_launcher_open(void);
 void desktop_launch(desktop_app_t app);
+void desktop_toggle_snap(void);
 
 #ifdef __cplusplus
 }

@@ -1,5 +1,5 @@
 /**
- * H3OS — Compositing window manager (software)
+ * H3OS — Compositing window manager (Windows-inspired chrome)
  */
 #include "wm.h"
 #include "../drivers/framebuffer/framebuffer.h"
@@ -7,26 +7,27 @@
 #include <h3os/adaptive.h>
 #include <h3os/kernel.h>
 #include <h3os/string.h>
-#include "../memory/heap.h"
 
-/* Brand palette — deep ocean teal, not purple/cream clichés */
-#define COL_TITLE_BG   0xFF0B1F2A
-#define COL_TITLE_FG   0xFFE8F4F8
-#define COL_BORDER     0xFF1A4A5C
-#define COL_SHADOW     0x66000000
-#define COL_CLOSE      0xFFE85D4C
-#define COL_MAX        0xFF3DDC97
-#define COL_MIN        0xFFF0C75E
+#define COL_TITLE_BG   0xFF101B24
+#define COL_TITLE_FG   0xFFF3F7FA
+#define COL_BORDER     0xFF2A4552
+#define COL_SHADOW     0x55000000
+#define COL_CLOSE      0xFFE81123
+#define COL_MAX        0xFF2EC4B6
+#define COL_MIN        0xFF7FA3AD
+#define TASKBAR_H      48
 
 static window_t windows[WM_MAX_WINDOWS];
 static window_t* focused = NULL;
 static u32 win_count = 0;
 
+i32 wm_taskbar_height(void) { return TASKBAR_H; }
+
 void wm_init(void) {
     memset(windows, 0, sizeof(windows));
     focused = NULL;
     win_count = 0;
-    KLOG_INFO("wm", "Window manager online");
+    KLOG_INFO("wm", "Window manager online (Horizon shell)");
 }
 
 window_t* wm_create(const char* title, i32 x, i32 y, i32 w, i32 h) {
@@ -42,7 +43,7 @@ window_t* wm_create(const char* title, i32 x, i32 y, i32 w, i32 h) {
             win->x = x; win->y = y; win->w = w; win->h = h;
             win->restore_x = x; win->restore_y = y;
             win->restore_w = w; win->restore_h = h;
-            win->bg = 0xFF0E2430;
+            win->bg = 0xFF0E1A22;
             win->accent = 0xFF2EC4B6;
             win->state = WIN_NORMAL;
             win_count++;
@@ -66,7 +67,18 @@ void wm_focus(window_t* win) {
     if (win) {
         win->focused = true;
         focused = win;
+        if (win->state == WIN_MINIMIZED) win->state = WIN_NORMAL;
     }
+}
+
+void wm_restore_or_focus(window_t* win) {
+    if (!win) return;
+    if (win->focused && win->state != WIN_MINIMIZED) {
+        win->state = WIN_MINIMIZED;
+        focused = NULL;
+        return;
+    }
+    wm_focus(win);
 }
 
 void wm_move(window_t* win, i32 x, i32 y) {
@@ -76,20 +88,21 @@ void wm_move(window_t* win, i32 x, i32 y) {
 
 void wm_resize(window_t* win, i32 w, i32 h) {
     if (!win) return;
-    if (w < 120) w = 120;
-    if (h < 80) h = 80;
+    if (w < 160) w = 160;
+    if (h < 100) h = 100;
     win->w = w; win->h = h;
 }
 
 void wm_set_state(window_t* win, win_state_t state) {
     if (!win) return;
     fb_t* fb = fb_get();
+    i32 tb = TASKBAR_H;
     if (state == WIN_MAXIMIZED && win->state != WIN_MAXIMIZED) {
         win->restore_x = win->x; win->restore_y = win->y;
         win->restore_w = win->w; win->restore_h = win->h;
-        win->x = 0; win->y = 40;
+        win->x = 0; win->y = 0;
         win->w = (i32)fb->width;
-        win->h = (i32)fb->height - 40 - 56;
+        win->h = (i32)fb->height - tb;
     } else if (state == WIN_NORMAL && win->state == WIN_MAXIMIZED) {
         win->x = win->restore_x; win->y = win->restore_y;
         win->w = win->restore_w; win->h = win->restore_h;
@@ -97,25 +110,57 @@ void wm_set_state(window_t* win, win_state_t state) {
     win->state = state;
 }
 
+void wm_snap(window_t* win, int layout) {
+    if (!win) return;
+    fb_t* fb = fb_get();
+    i32 W = (i32)fb->width;
+    i32 H = (i32)fb->height - TASKBAR_H;
+    i32 hw = W / 2;
+    i32 hh = H / 2;
+
+    if (win->state != WIN_MAXIMIZED && layout != 6) {
+        win->restore_x = win->x; win->restore_y = win->y;
+        win->restore_w = win->w; win->restore_h = win->h;
+    }
+
+    switch (layout) {
+        case 0: win->x = 0; win->y = 0; win->w = hw; win->h = H; break;
+        case 1: win->x = hw; win->y = 0; win->w = W - hw; win->h = H; break;
+        case 2: win->x = 0; win->y = 0; win->w = hw; win->h = hh; break;
+        case 3: win->x = hw; win->y = 0; win->w = W - hw; win->h = hh; break;
+        case 4: win->x = 0; win->y = hh; win->w = hw; win->h = H - hh; break;
+        case 5: win->x = hw; win->y = hh; win->w = W - hw; win->h = H - hh; break;
+        case 6: wm_set_state(win, WIN_MAXIMIZED); return;
+        default: break;
+    }
+    win->state = WIN_NORMAL;
+}
+
+static void draw_caption_btn(i32 x, i32 y, u32 fill, const char* glyph) {
+    fb_fill_rect(x, y, 46, 32, fill);
+    fb_draw_string(x + 18, y + 12, glyph, 0xFFFFFFFF, 0xFFFFFFFF);
+}
+
 static void draw_window_chrome(window_t* win) {
     const perf_settings_t* p = adaptive_settings();
     i32 x = win->x, y = win->y, w = win->w, h = win->h;
 
-    if (p->shadows) {
-        fb_fill_rect(x + 4, y + 4, w, h, COL_SHADOW);
+    if (p->shadows && win->state != WIN_MAXIMIZED) {
+        fb_fill_rect(x + 6, y + 6, w, h, COL_SHADOW);
     }
 
-    fb_fill_rounded_rect(x, y, w, h, 8, win->bg);
-    fb_fill_rect(x, y, w, 28, COL_TITLE_BG);
-    fb_draw_string(x + 12, y + 10, win->title, COL_TITLE_FG, 0xFFFFFFFF);
+    fb_fill_rect(x, y, w, h, win->bg);
+    /* Windows-style title bar */
+    fb_fill_rect(x, y, w, 32, win->focused ? 0xFF15232E : COL_TITLE_BG);
+    fb_draw_string(x + 14, y + 12, win->title, COL_TITLE_FG, 0xFFFFFFFF);
 
-    /* Traffic lights — H3OS style (right side, teal accent circle + controls) */
-    fb_fill_rect(x + w - 54, y + 8, 12, 12, COL_MIN);
-    fb_fill_rect(x + w - 38, y + 8, 12, 12, COL_MAX);
-    fb_fill_rect(x + w - 22, y + 8, 12, 12, COL_CLOSE);
+    /* Caption buttons: min / max / close (Windows order, right side) */
+    draw_caption_btn(x + w - 138, y, 0xFF1A2A35, "_");
+    draw_caption_btn(x + w - 92, y, 0xFF1A2A35, "O");
+    draw_caption_btn(x + w - 46, y, win->focused ? COL_CLOSE : 0xFF3A2030, "X");
 
     if (win->focused) {
-        fb_draw_rect(x, y, w, h, win->accent);
+        fb_fill_rect(x, y + 31, w, 2, win->accent);
     } else {
         fb_draw_rect(x, y, w, h, COL_BORDER);
     }
@@ -124,7 +169,6 @@ static void draw_window_chrome(window_t* win) {
 }
 
 void wm_render(void) {
-    /* Non-focused first, focused last */
     for (int i = 0; i < WM_MAX_WINDOWS; i++) {
         if (windows[i].active && !windows[i].focused &&
             windows[i].state != WIN_MINIMIZED)
@@ -152,7 +196,6 @@ window_t* wm_get(u32 index) {
 }
 
 window_t* wm_at(i32 x, i32 y) {
-    /* Prefer focused, then scan reverse for z-order approx */
     if (focused && focused->active && focused->state != WIN_MINIMIZED) {
         if (x >= focused->x && x < focused->x + focused->w &&
             y >= focused->y && y < focused->y + focused->h)
@@ -177,8 +220,18 @@ void wm_handle_mouse(void) {
 
     if (dragging && drag_win && drag_win->active) {
         if (m.left) {
+            if (drag_win->state == WIN_MAXIMIZED) {
+                wm_set_state(drag_win, WIN_NORMAL);
+                drag_off_x = drag_win->w / 2;
+                drag_off_y = 16;
+            }
             wm_move(drag_win, m.x - drag_off_x, m.y - drag_off_y);
         } else {
+            /* Aero-style snap on release near edges */
+            fb_t* fb = fb_get();
+            if (m.x <= 12) wm_snap(drag_win, 0);
+            else if (m.x >= (i32)fb->width - 12) wm_snap(drag_win, 1);
+            else if (m.y <= 8) wm_snap(drag_win, 6);
             dragging = false;
             drag_win = NULL;
         }
@@ -189,30 +242,27 @@ void wm_handle_mouse(void) {
 
     window_t* hit = wm_at(m.x, m.y);
     if (!hit) return;
-
     wm_focus(hit);
 
-    /* Title-bar chrome hit tests */
     i32 tx = hit->x, ty = hit->y, tw = hit->w;
-    if (m.y >= ty && m.y < ty + 28) {
-        if (m.x >= tx + tw - 22 && m.x < tx + tw - 10) {
+    if (m.y >= ty && m.y < ty + 32) {
+        if (m.x >= tx + tw - 46 && m.x < tx + tw) {
             wm_destroy(hit);
             return;
         }
-        if (m.x >= tx + tw - 38 && m.x < tx + tw - 26) {
+        if (m.x >= tx + tw - 92 && m.x < tx + tw - 46) {
             if (hit->state == WIN_MAXIMIZED) wm_set_state(hit, WIN_NORMAL);
             else wm_set_state(hit, WIN_MAXIMIZED);
             return;
         }
-        if (m.x >= tx + tw - 54 && m.x < tx + tw - 42) {
+        if (m.x >= tx + tw - 138 && m.x < tx + tw - 92) {
             hit->state = WIN_MINIMIZED;
+            if (focused == hit) focused = NULL;
             return;
         }
-        /* Start drag on title bar */
         dragging = true;
         drag_win = hit;
         drag_off_x = m.x - hit->x;
         drag_off_y = m.y - hit->y;
     }
 }
-

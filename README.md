@@ -27,19 +27,24 @@ make iso
 make run
 ```
 
-### കീബോർഡ് ഷോർട്ട്കട്ടുകൾ
+### Desktop (Windows-inspired Horizon shell)
+
+- Bottom **taskbar**: Start (H3), Search, pinned apps, open-window buttons, tray, clock
+- **Start menu** with pinned apps, recommended, power off
+- **Notification / Action Center** with quick settings tiles
+- **Desktop icons** (This PC, Files, Terminal, Settings, Recycle Bin)
+- **Right-click** context menu (Personalize, Display settings, …)
+- **Snap layouts** (Ctrl+N) + drag-to-edge snap
+- Window chrome: min / max / close like Windows
 
 | Shortcut | Action |
 |----------|--------|
 | Ctrl+T | Terminal |
-| Ctrl+L | Launcher |
+| Ctrl+L | Start menu |
 | Ctrl+F | File Manager |
 | Ctrl+S | Settings |
+| Ctrl+N | Snap layouts |
 | Ctrl+D | Dark / Light theme |
-
-Dock / launcher clicks open Terminal, Files, Settings, Calculator, Task Manager.
-
-Terminal-ൽ: `help`, `systeminfo`, `ls`, `cd`, `cat`, `cp`, `mv`, `h3pkg`, `shutdown`, `reboot`
 
 ---
 

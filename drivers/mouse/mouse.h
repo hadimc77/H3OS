@@ -14,13 +14,15 @@ typedef struct {
     i32 x, y;
     i32 dx, dy;
     bool left, right, middle;
-    bool left_pressed;   /* rising edge */
-    bool left_released;  /* falling edge */
+    bool left_pressed;
+    bool left_released;
+    bool right_pressed;
+    bool right_released;
 } mouse_state_t;
 
 void mouse_init(void);
 void mouse_get(mouse_state_t* out);
-void mouse_poll_frame(void); /* clear edge flags after UI consumes them */
+void mouse_poll_frame(void);
 void mouse_draw_cursor(void);
 
 #ifdef __cplusplus
