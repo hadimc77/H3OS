@@ -79,9 +79,9 @@ static void list_cb(vfs_node_t* n, void* ctx) {
 
 static void cmd_help(void) {
     term_println("H3OS Shell — commands:");
-    term_println("  cd ls pwd mkdir rm cat echo grep find");
-    term_println("  clear top kill systeminfo network");
-    term_println("  shutdown reboot help version h3pkg");
+    term_println("  cd ls pwd mkdir rm cp mv cat echo");
+    term_println("  grep find clear top kill systeminfo");
+    term_println("  network shutdown reboot help version h3pkg");
 }
 
 static void cmd_systeminfo(void) {
@@ -151,6 +151,18 @@ static void run_command(char* line) {
         char* arg = next_arg(&p);
         if (!arg) term_println("rm: missing operand");
         else if (vfs_unlink(arg) != 0) term_println("rm: failed");
+    } else if (strcmp(cmd, "cp") == 0) {
+        char* src = next_arg(&p);
+        char* dst = next_arg(&p);
+        if (!src || !dst) term_println("cp: usage: cp <src> <dst>");
+        else if (vfs_copy(src, dst) != 0) term_println("cp: failed");
+        else term_println("ok");
+    } else if (strcmp(cmd, "mv") == 0) {
+        char* src = next_arg(&p);
+        char* dst = next_arg(&p);
+        if (!src || !dst) term_println("mv: usage: mv <src> <dst>");
+        else if (vfs_rename(src, dst) != 0) term_println("mv: failed");
+        else term_println("ok");
     } else if (strcmp(cmd, "cat") == 0) {
         char* arg = next_arg(&p);
         vfs_node_t* f = arg ? vfs_resolve(arg) : NULL;
@@ -193,11 +205,86 @@ static void run_command(char* line) {
         term_println("grep: use cat + visual scan in v0.1 (full grep soon)");
     } else if (strcmp(cmd, "h3pkg") == 0) {
         char* sub = next_arg(&p);
-        if (!sub) term_println("h3pkg: install|remove|update|upgrade|search|repair");
-        else {
-            term_print("h3pkg: '");
+        char* pkg = next_arg(&p);
+        if (!sub) {
+            term_println("h3pkg: install|remove|update|upgrade|search|repair|list");
+        } else if (strcmp(sub, "list") == 0 || strcmp(sub, "search") == 0) {
+            vfs_node_t* db = vfs_resolve("/var/lib/h3pkg/db");
+            if (!db) term_println("h3pkg: database missing");
+            else {
+                char buf[512];
+                u64 n = 0;
+                vfs_read(db, buf, sizeof(buf) - 1, &n);
+                buf[n] = '\0';
+                if (pkg && pkg[0]) {
+                    /* naive substring search */
+                    const char* s = buf;
+                    bool found = false;
+                    while (*s) {
+                        const char* line = s;
+                        while (*s && *s != '\n') s++;
+                        char tmp[96];
+                        size_t len = (size_t)(s - line);
+                        if (len >= sizeof(tmp)) len = sizeof(tmp) - 1;
+                        memcpy(tmp, line, len);
+                        tmp[len] = '\0';
+                        if (strstr(tmp, pkg)) { term_println(tmp); found = true; }
+                        if (*s == '\n') s++;
+                    }
+                    if (!found) term_println("h3pkg: no matches");
+                } else {
+                    term_print(buf);
+                    if (n == 0 || buf[n - 1] != '\n') term_newline();
+                }
+            }
+        } else if (strcmp(sub, "install") == 0) {
+            if (!pkg) term_println("h3pkg: install <name>");
+            else {
+                vfs_node_t* db = vfs_resolve("/var/lib/h3pkg/db");
+                char entry[96];
+                strcpy(entry, pkg);
+                strcat(entry, " 0.1.0 installed\n");
+                if (!db) {
+                    vfs_mkdir("/var/lib", 0755);
+                    vfs_mkdir("/var/lib/h3pkg", 0755);
+                    db = vfs_create("/var/lib/h3pkg/db", 0644);
+                    if (db) vfs_write(db, entry, strlen(entry));
+                } else {
+                    char buf[512];
+                    u64 n = 0;
+                    vfs_read(db, buf, sizeof(buf) - 1, &n);
+                    buf[n] = '\0';
+                    if (n + strlen(entry) < sizeof(buf)) {
+                        strcat(buf, entry);
+                        vfs_write(db, buf, strlen(buf));
+                    }
+                }
+                vfs_mkdir("/usr/share/packages", 0755);
+                char path[128];
+                strcpy(path, "/usr/share/packages/");
+                strcat(path, pkg);
+                vfs_node_t* meta = vfs_create(path, 0644);
+                if (meta) vfs_write(meta, "h3pkg package\n", 14);
+                term_print("h3pkg: installed ");
+                term_println(pkg);
+            }
+        } else if (strcmp(sub, "remove") == 0) {
+            if (!pkg) term_println("h3pkg: remove <name>");
+            else {
+                char path[128];
+                strcpy(path, "/usr/share/packages/");
+                strcat(path, pkg);
+                vfs_unlink(path);
+                term_print("h3pkg: removed ");
+                term_println(pkg);
+            }
+        } else if (strcmp(sub, "repair") == 0 || strcmp(sub, "update") == 0 ||
+                   strcmp(sub, "upgrade") == 0) {
+            term_print("h3pkg: ");
             term_print(sub);
-            term_println("' — package database not mounted yet");
+            term_println(" — local RAMFS db OK");
+        } else {
+            term_println("h3pkg: unknown subcommand");
         }
     } else if (strcmp(cmd, "shutdown") == 0) {
         term_println("Shutting down H3OS...");

@@ -3,6 +3,7 @@
  */
 #include "wm.h"
 #include "../drivers/framebuffer/framebuffer.h"
+#include "../drivers/mouse/mouse.h"
 #include <h3os/adaptive.h>
 #include <h3os/kernel.h>
 #include <h3os/string.h>
@@ -139,3 +140,79 @@ void wm_handle_key(char c) {
 
 window_t* wm_focused(void) { return focused; }
 u32 wm_count(void) { return win_count; }
+
+window_t* wm_get(u32 index) {
+    u32 n = 0;
+    for (int i = 0; i < WM_MAX_WINDOWS; i++) {
+        if (!windows[i].active) continue;
+        if (n == index) return &windows[i];
+        n++;
+    }
+    return NULL;
+}
+
+window_t* wm_at(i32 x, i32 y) {
+    /* Prefer focused, then scan reverse for z-order approx */
+    if (focused && focused->active && focused->state != WIN_MINIMIZED) {
+        if (x >= focused->x && x < focused->x + focused->w &&
+            y >= focused->y && y < focused->y + focused->h)
+            return focused;
+    }
+    for (int i = WM_MAX_WINDOWS - 1; i >= 0; i--) {
+        window_t* w = &windows[i];
+        if (!w->active || w->state == WIN_MINIMIZED) continue;
+        if (x >= w->x && x < w->x + w->w && y >= w->y && y < w->y + w->h)
+            return w;
+    }
+    return NULL;
+}
+
+static window_t* drag_win = NULL;
+static i32 drag_off_x = 0, drag_off_y = 0;
+static bool dragging = false;
+
+void wm_handle_mouse(void) {
+    mouse_state_t m;
+    mouse_get(&m);
+
+    if (dragging && drag_win && drag_win->active) {
+        if (m.left) {
+            wm_move(drag_win, m.x - drag_off_x, m.y - drag_off_y);
+        } else {
+            dragging = false;
+            drag_win = NULL;
+        }
+        return;
+    }
+
+    if (!m.left_pressed) return;
+
+    window_t* hit = wm_at(m.x, m.y);
+    if (!hit) return;
+
+    wm_focus(hit);
+
+    /* Title-bar chrome hit tests */
+    i32 tx = hit->x, ty = hit->y, tw = hit->w;
+    if (m.y >= ty && m.y < ty + 28) {
+        if (m.x >= tx + tw - 22 && m.x < tx + tw - 10) {
+            wm_destroy(hit);
+            return;
+        }
+        if (m.x >= tx + tw - 38 && m.x < tx + tw - 26) {
+            if (hit->state == WIN_MAXIMIZED) wm_set_state(hit, WIN_NORMAL);
+            else wm_set_state(hit, WIN_MAXIMIZED);
+            return;
+        }
+        if (m.x >= tx + tw - 54 && m.x < tx + tw - 42) {
+            hit->state = WIN_MINIMIZED;
+            return;
+        }
+        /* Start drag on title bar */
+        dragging = true;
+        drag_win = hit;
+        drag_off_x = m.x - hit->x;
+        drag_off_y = m.y - hit->y;
+    }
+}
+

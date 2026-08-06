@@ -76,6 +76,17 @@ char* strcat(char* dst, const char* src) {
     return dst;
 }
 
+char* strstr(const char* haystack, const char* needle) {
+    if (!*needle) return (char*)haystack;
+    for (; *haystack; haystack++) {
+        const char* h = haystack;
+        const char* n = needle;
+        while (*h && *n && *h == *n) { h++; n++; }
+        if (!*n) return (char*)haystack;
+    }
+    return NULL;
+}
+
 void utoa(u64 value, char* buf, int base) {
     char tmp[65];
     int i = 0;

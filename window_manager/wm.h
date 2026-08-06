@@ -46,8 +46,11 @@ void      wm_resize(window_t* win, i32 w, i32 h);
 void      wm_set_state(window_t* win, win_state_t state);
 void      wm_render(void);
 void      wm_handle_key(char c);
+void      wm_handle_mouse(void); /* consume mouse edges / drag */
 window_t* wm_focused(void);
+window_t* wm_at(i32 x, i32 y);
 u32       wm_count(void);
+window_t* wm_get(u32 index);
 
 #ifdef __cplusplus
 }

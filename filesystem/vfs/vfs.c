@@ -51,6 +51,9 @@ void vfs_init(void) {
     vfs_mkdir("/usr/share", 0755);
     vfs_mkdir("/dev", 0755);
     vfs_mkdir("/proc", 0755);
+    vfs_mkdir("/var/lib", 0755);
+    vfs_mkdir("/var/lib/h3pkg", 0755);
+    vfs_mkdir("/usr/share/packages", 0755);
 
     vfs_node_t* motd = vfs_create("/etc/motd", 0644);
     if (motd) {
@@ -61,6 +64,11 @@ void vfs_init(void) {
     if (ver) {
         const char* msg = "NAME=\"H3OS\"\nVERSION=\"0.1.0\"\nCODENAME=\"Horizon\"\n";
         vfs_write(ver, msg, strlen(msg));
+    }
+    vfs_node_t* pkgdb = vfs_create("/var/lib/h3pkg/db", 0644);
+    if (pkgdb) {
+        const char* db = "base-system 0.1.0 installed\nhorizon-desktop 0.1.0 installed\n";
+        vfs_write(pkgdb, db, strlen(db));
     }
 
     KLOG_INFO("vfs", "RAMFS/H3FS root mounted with %u nodes", node_count);
@@ -180,6 +188,20 @@ i32 vfs_unlink(const char* path) {
     n->size = 0;
     n->name[0] = '\0';
     return 0;
+}
+
+i32 vfs_copy(const char* src, const char* dst) {
+    vfs_node_t* s = vfs_resolve(src);
+    if (!s || s->type != VFS_FILE) return -1;
+    vfs_node_t* d = vfs_create(dst, s->mode ? s->mode : 0644);
+    if (!d) return -1;
+    if (s->size && s->data) return vfs_write(d, s->data, s->size);
+    return 0;
+}
+
+i32 vfs_rename(const char* src, const char* dst) {
+    if (vfs_copy(src, dst) != 0) return -1;
+    return vfs_unlink(src);
 }
 
 void vfs_list(vfs_node_t* dir, void (*cb)(vfs_node_t*, void*), void* ctx) {

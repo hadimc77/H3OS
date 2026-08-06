@@ -39,6 +39,8 @@ vfs_node_t* vfs_create(const char* path, u32 mode);
 i32         vfs_write(vfs_node_t* node, const void* buf, u64 size);
 i32         vfs_read(vfs_node_t* node, void* buf, u64 max, u64* out_size);
 i32         vfs_unlink(const char* path);
+i32         vfs_copy(const char* src, const char* dst);
+i32         vfs_rename(const char* src, const char* dst);
 void        vfs_list(vfs_node_t* dir, void (*cb)(vfs_node_t*, void*), void* ctx);
 const char* vfs_cwd(void);
 i32         vfs_chdir(const char* path);

@@ -45,6 +45,7 @@ C_SRCS := \
 	memory/vmm.c \
 	drivers/timer/timer.c \
 	drivers/keyboard/keyboard.c \
+	drivers/mouse/mouse.c \
 	drivers/framebuffer/framebuffer.c \
 	drivers/rtc/rtc.c \
 	drivers/pci/pci.c \
@@ -52,6 +53,10 @@ C_SRCS := \
 	window_manager/wm.c \
 	desktop/desktop.c \
 	applications/terminal/terminal.c \
+	applications/calculator/calculator.c \
+	applications/settings/settings.c \
+	applications/filemanager/filemanager.c \
+	applications/taskmanager/taskmanager.c \
 	network/net.c \
 	security/security.c
 
@@ -69,11 +74,13 @@ dirs:
 		$(BUILD)/kernel/core $(BUILD)/kernel/arch/x86_64 \
 		$(BUILD)/kernel/sync $(BUILD)/kernel/syscall \
 		$(BUILD)/memory \
-		$(BUILD)/drivers/timer $(BUILD)/drivers/keyboard \
+		$(BUILD)/drivers/timer $(BUILD)/drivers/keyboard $(BUILD)/drivers/mouse \
 		$(BUILD)/drivers/framebuffer $(BUILD)/drivers/rtc $(BUILD)/drivers/pci \
 		$(BUILD)/filesystem/vfs \
 		$(BUILD)/window_manager $(BUILD)/desktop \
-		$(BUILD)/applications/terminal \
+		$(BUILD)/applications/terminal $(BUILD)/applications/calculator \
+		$(BUILD)/applications/settings $(BUILD)/applications/filemanager \
+		$(BUILD)/applications/taskmanager \
 		$(BUILD)/network $(BUILD)/security \
 		$(BUILD)/iso/boot/grub
 

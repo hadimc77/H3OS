@@ -21,6 +21,7 @@
 #include "../memory/vmm.h"
 #include "../drivers/timer/timer.h"
 #include "../drivers/keyboard/keyboard.h"
+#include "../drivers/mouse/mouse.h"
 #include "../drivers/framebuffer/framebuffer.h"
 #include "../drivers/rtc/rtc.h"
 #include "../drivers/pci/pci.h"
@@ -31,12 +32,10 @@
 #include "../network/net.h"
 #include "../security/security.h"
 
-/* Declared in other TUs */
 void klog_init(void);
 void cpu_init(void);
 
 static volatile bool g_running = true;
-static bool ctrl_down = false;
 
 static void banner(void) {
     KLOG_INFO("boot", "======================================================");
@@ -48,37 +47,44 @@ static void banner(void) {
 
 void kernel_idle(void) {
     while (g_running) {
-        /* Drain keyboard into desktop / terminal */
         char c;
         while (keyboard_try_read(&c)) {
-            if (c == 0x11 || c == ('t' & 0x1F)) { /* Ctrl+T-ish via raw — handle below */
-            }
-
-            /* Simple control sequences using ASCII */
             if (c == 20) { /* Ctrl+T */
-                terminal_open();
+                desktop_launch(APP_TERMINAL);
                 continue;
             }
             if (c == 12) { /* Ctrl+L */
                 desktop_toggle_launcher();
                 continue;
             }
-            if (c == 4) { /* Ctrl+D theme toggle */
+            if (c == 6) { /* Ctrl+F files */
+                desktop_launch(APP_FILES);
+                continue;
+            }
+            if (c == 19) { /* Ctrl+S settings */
+                desktop_launch(APP_SETTINGS);
+                continue;
+            }
+            if (c == 4) { /* Ctrl+D theme */
                 static int th = 0;
                 th = !th;
                 desktop_set_theme(th ? THEME_LIGHT : THEME_DARK);
                 continue;
             }
-
             wm_handle_key(c);
-            H3OS_UNUSED(ctrl_down);
+        }
+
+        /* Mouse: desktop chrome first, then window manager */
+        desktop_handle_mouse();
+        if (!desktop_mouse_click_consumed()) {
+            wm_handle_mouse();
         }
 
         desktop_tick();
         sched_tick();
         desktop_render();
+        mouse_poll_frame();
 
-        /* Pace to adaptive target FPS using busy wait on PIT */
         const perf_settings_t* p = adaptive_settings();
         u64 frame_ms = p->target_fps ? (1000 / p->target_fps) : 16;
         u64 start = timer_uptime_ms();
@@ -102,29 +108,24 @@ void kernel_main(u64 multiboot_info_addr) {
     KLOG_INFO("boot", "Multiboot2 info at %p (%u bytes)",
               (void*)mb2, mb2->total_size);
 
-    /* CPU */
     gdt_init();
     cpu_init();
 
-    /* Memory */
     pmm_init(mb2);
     heap_init();
     vmm_init();
 
-    /* Interrupts + time */
     idt_init();
     timer_init(100);
     rtc_init();
 
-    /* Drivers */
     keyboard_init();
+    mouse_init();
     pci_init();
     fb_init(mb2);
 
-    /* Adaptive profile based on detected hardware */
     adaptive_init();
 
-    /* Core services */
     security_init();
     vfs_init();
     net_init();
@@ -133,7 +134,6 @@ void kernel_main(u64 multiboot_info_addr) {
     sched_init();
     syscall_init();
 
-    /* UI stack */
     wm_init();
     desktop_init();
     terminal_open();
