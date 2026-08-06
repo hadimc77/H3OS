@@ -33,9 +33,13 @@ make run
 |----------|--------|
 | Ctrl+T | Terminal |
 | Ctrl+L | Launcher |
+| Ctrl+F | File Manager |
+| Ctrl+S | Settings |
 | Ctrl+D | Dark / Light theme |
 
-Terminal-ൽ: `help`, `systeminfo`, `ls`, `cd`, `cat`, `h3pkg`, `shutdown`, `reboot`
+Dock / launcher clicks open Terminal, Files, Settings, Calculator, Task Manager.
+
+Terminal-ൽ: `help`, `systeminfo`, `ls`, `cd`, `cat`, `cp`, `mv`, `h3pkg`, `shutdown`, `reboot`
 
 ---
 
